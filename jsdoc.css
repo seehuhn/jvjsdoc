@@ -87,9 +87,6 @@ UL.nav > LI:last-child {
     float: right;
     margin-left: 1em;
 }
-UL.nav > LI:last-child:before {
-    content: "";
-}
 UL.nav > LI:before {
     content: ". ";
 }
@@ -98,6 +95,9 @@ UL.nav > LI:first-child:before {
 }
 UL.nav > LI:first-child + LI:before {
     content: "| ";
+}
+UL.nav > LI:last-child:before {
+    content: "" !important;
 }
 
 INPUT#search {

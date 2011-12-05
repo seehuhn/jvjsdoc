@@ -161,7 +161,9 @@ class HtmlFile(BasicHtmlFile):
 
         entries = {}
         sym = mainsym
+        lineage = [ ]
         while sym:
+            lineage.append(sym)
             if sym == mainsym:
                 msg = ""
             else:
@@ -194,6 +196,13 @@ class HtmlFile(BasicHtmlFile):
         if mainsym.data:
             names = [ mainsym.name ] + names
             entries[mainsym.name] = [ mainsym.data.get('.doc'), mainsym, '' ]
+
+        if len(lineage) > 1:
+            lines = []
+            for sym in lineage:
+                url = sym.url() if sym != mainsym else None
+                lines.append(href(url, code(sym.name), basedir))
+            body.append('<p>inheritance: ' + ' &gt;\n'.join(lines) + '\n')
 
         for name in names:
             doc, sym, comment = entries[name]
@@ -696,6 +705,8 @@ body = []
 body.append('var jvXRef = {\n')
 for name in sorted(Symbol.all_names.keys()):
     sym = Symbol.get(name)
+    if sym.is_private():
+        continue
     url = sym.url()
     if not url:
         continue
