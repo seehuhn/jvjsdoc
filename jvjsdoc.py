@@ -10,85 +10,25 @@ import sys
 
 OUTPUT_PATH = "tmp"
 
-CSS_NAME = "jsdoc.css"
-CSS_DATA = """
-HTML {
-    margin: 0;
-    border: none;
-    padding: 0;
-
-    color: #222;
-    background: white;
-}
-BODY {
-    margin: 16px auto;
-    border: none;
-    padding: 0 16px 0 48px;
-    overflow: visible;
-
-    max-width: 45em;
-    font: 12pt/129% arial, sans-serif, symbol;
-}
-H1 {
-    margin: 0 0 1ex -32px;
-
-    font-size: 15pt;
-    line-height: 110%;
-    text-align: left;
-    color: black;
-    page-break-after: avoid;
-}
-H2 {
-    margin: 2ex 0 .5ex -32px;
-
-    font-size: 13pt;
-    line-height: 110%;
-    text-align: left;
-    color: #111;
-    page-break-after: avoid;
-}
-H2 > CODE {
-    white-space: pre;
-}
-SPAN.type {
-    color: gray;
-}
-CODE {
-    font-family: inherit;
-    font-weight: bold;
-}
-P {
-    margin: .5ex 0;
-}
-DL {
-    margin: .5ex 0;
-}
-A {
-    text-decoration: inherit;
-    color: #008;
-}
-A:hover {
-    text-decoration: underline;
-    color: blue;
-}
-UL.index {
-    margin: 0;
-    border: none;
-    padding: 0;
-    list-style-type: none;
-    text-indent: -32px;
-}
-"""
-
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>{title}</title>
-<link rel="stylesheet" href="{css_full}" type="text/css">
+<link rel="stylesheet" href="@<jsdoc.css>" type="text/css">
+<script type="text/javascript">
+var jvBaseDir = '@<.>';
+</script>
+<script type="text/javascript" src="@<index.js>"></script>
+<script type="text/javascript" src="@<jsdoc.js>"></script>
 </head>
-<body>
+<body onload="init()">
+<ul class="nav">
+<li><a href="@<index.html>">index</a>
+{breadcrumbs}
+<li class="off">search: <input id="search"></input><button id="go">Go</button>
+</ul>
 <h1>{HTMLtitle}</h1>
 {body}
 </body>
@@ -158,13 +98,19 @@ class BasicHtmlFile(BasicFile):
 
     def __init__(self, fname):
         super().__init__(fname)
+        self.breadcrumbs = []
 
     def write(self, title, html_title, body):
-        text = HTML_TEMPLATE.format(
+        path = os.path.dirname(self.fname)
+        def repl_fn(m):
+            return os.path.relpath(m.group(1), path)
+        tmpl = re.sub('@<([^>]*)>', repl_fn, HTML_TEMPLATE)
+
+        text = tmpl.format(
             title = title,
             HTMLtitle = html_title,
-            body = body,
-            css_full = os.path.relpath(CSS_NAME, os.path.dirname(self.fname)))
+            breadcrumbs = '\n'.join('<li>' + x for x in self.breadcrumbs),
+            body = body)
         super().write(text)
 
 def split_leading_type_info(s):
@@ -206,6 +152,12 @@ class HtmlFile(BasicHtmlFile):
         body = []
 
         mainsym = Symbol.get(self.symbols[0])
+
+        parts = mainsym.name.split('.')[:-1]
+        for k, part in enumerate(parts):
+            name = '.'.join(parts[:k+1])
+            crumb = href(Symbol.get(name).url(), part, basedir)
+            self.breadcrumbs.append(crumb)
 
         entries = {}
         sym = mainsym
@@ -692,6 +644,7 @@ for fname in sorted(HtmlFile.all_files.keys()):
     html = HtmlFile.all_files[fname]
     html.generate()
 
+# index.html
 body = []
 body.append('<ul class="index">\n')
 for name in sorted(Symbol.all_names.keys()):
@@ -712,4 +665,20 @@ for name in sorted(Symbol.all_names.keys()):
 body.append('</ul>\n')
 BasicHtmlFile("index.html").write("Index", "Index", ''.join(body))
 
-BasicFile(CSS_NAME).write(CSS_DATA.strip() + '\n')
+# index.js
+body = []
+body.append('var jvXRef = {\n')
+for name in sorted(Symbol.all_names.keys()):
+    sym = Symbol.get(name)
+    url = sym.url()
+    if not url:
+        continue
+    body.append("  '%s': '%s',\n"%(name, url))
+body.append('};\n')
+BasicFile("index.js").write(''.join(body))
+
+# jsdoc.css
+BasicFile("jsdoc.css").write(open("jsdoc.css").read())
+
+# jsdoc.js
+BasicFile("jsdoc.js").write(open("jsdoc.js").read())
