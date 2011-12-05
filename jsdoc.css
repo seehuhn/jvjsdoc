@@ -51,11 +51,11 @@ DL {
 }
 A {
     text-decoration: inherit;
-    color: #008;
+    color: #050;
 }
 A:hover {
     text-decoration: underline;
-    color: blue;
+    color: #0A0;
 }
 UL.index {
     margin: 0;
@@ -99,12 +99,6 @@ UL.nav > LI:first-child:before {
 UL.nav > LI:first-child + LI:before {
     content: "| ";
 }
-UL.nav > LI A {
-    color: #800000;
-}
-UL.nav > LI:first-child A {
-    color: #007000;
-}
 
 INPUT#search {
     margin: 0;
@@ -120,6 +114,18 @@ BUTTON {
 
 .off {
     display: none;
+}
+
+.hidden > * {
+    display: none;
+}
+.hidden > *:first-child {
+    display: inherit;
+    color: gray;
+}
+.hidden > *:first-child:hover {
+    text-decoration: underline;
+    color: black;
 }
 
 .ac-renderer {

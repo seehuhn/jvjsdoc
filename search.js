@@ -9,7 +9,7 @@ goog.require('goog.ui.AutoComplete.Basic');
 /**
  * Initialise the javascript supported search box.
  */
-jv.init = function() {
+jv.enableSearch = function() {
     var search = goog.dom.getElement('search');
     var go = goog.dom.getElement('go');
     var xRef = window['jvXRef'];
@@ -41,6 +41,30 @@ jv.init = function() {
                        });
 
     goog.dom.classes.remove(search.parentElement, 'off');
+};
+
+/**
+ * Enable to un-hide information about protected and deprecated methods.
+ */
+jv.enableHiddenContent = function() {
+    var hidden = goog.dom.getElementsByClass('hidden');
+    function helper(elem, e) {
+        goog.dom.classes.toggle(elem, 'hidden');
+    };
+    for (var i = 0; i < hidden.length; ++i) {
+        var elem = hidden[i];
+        var trigger = elem.firstChild;
+        goog.events.listen(trigger, goog.events.EventType.CLICK,
+                           goog.bind(helper, undefined, elem));
+    }
+};
+
+/**
+ * Initialise our javascript helpers.
+ */
+jv.init = function() {
+    jv.enableSearch();
+    jv.enableHiddenContent();
 };
 
 goog.exportSymbol('init', jv.init);

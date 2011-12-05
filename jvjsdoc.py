@@ -165,8 +165,8 @@ class HtmlFile(BasicHtmlFile):
             if sym == mainsym:
                 msg = ""
             else:
-                msg = ("(inherited from " +
-                       href(sym.url(), code(sym.name), basedir) + ")")
+                msg = ("Inherited from " +
+                       href(sym.url(), code(sym.name), basedir) + " .")
             pfx = sym.name + '.'
             for child in sym.children:
                 if not child.data.get('.proto', False):
@@ -205,16 +205,27 @@ class HtmlFile(BasicHtmlFile):
             sym_fname = sym.filename()
             if sym_fname and sym_fname != self.fname:
                 link = sym.url()
+            has_div = False
             if link:
                 title = sym.title(as_html=True)
                 body.append(h2(href(link, title, basedir),
                                sym.name.rsplit('.',1)[-1]))
             else:
+                state = sym.state()
                 title = sym.prototype(as_html=True, name=name, doc=doc)
+                if state in [ "protected", "deprecated" ]:
+                    body.append('<div class="hidden">')
+                    has_div = True
+                    title += ' [%s]' % state
                 body.append(h2(title,
                                sym.name.rsplit('.',1)[-1]) + '\n')
+
+            deprecated = sym.deprecated()
+            if deprecated:
+                body.append('<p><b>Deprecated.</b> '+deprecated+'\n')
             if comment:
                 body.append('<p>'+comment+'\n')
+
             par = []
             desc = sym.description(doc=doc)
             if desc:
@@ -244,7 +255,7 @@ class HtmlFile(BasicHtmlFile):
                 break
             for tp, cont in parts[1:]:
                 if tp in [ 'param', 'constructor', 'interface', 'extends',
-                           'return' ]:
+                           'return', 'protected', 'deprecated' ]:
                     continue
                 interface.append(('@'+tp, escape(cont)))
             if interface:
@@ -270,6 +281,8 @@ class HtmlFile(BasicHtmlFile):
                     body.append('<dt>%s\n'%code(key))
                     body.append('<dd>%s\n'%code(repr(val)))
                 body.append('</dl>\n')
+            if has_div:
+                body.append('</div>\n')
         self.write(mainsym.title(), mainsym.title(as_html=True), ''.join(body))
 
 ######################################################################
@@ -320,8 +333,21 @@ class Symbol(object):
             self._doc_parts = parts
         return self._doc_parts
 
+    def state(self):
+        parts = self._jsdoc_parts()
+        for state in [ "deprecated", "protected" ]:
+            if any(key == state for key, _ in parts):
+                return state
+        return None
+
     def description(self, doc=None):
         return self._jsdoc_parts(doc)[0][1].strip()
+
+    def deprecated(self):
+        for key, val in self._jsdoc_parts():
+            if key == "deprecated":
+                return val
+        return None
 
     def params(self, doc=None):
         parts = self._jsdoc_parts(doc=doc)
