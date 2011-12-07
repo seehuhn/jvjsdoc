@@ -51,9 +51,10 @@ function_regex = re.compile(r'function\s*(' + js_name_part + r')\s*\(')
 prov_regex = re.compile(r'goog\.provide\s*\(\s*[\'\"]([^\)]+)[\'\"]\s*\)')
 req_regex = re.compile(r'goog\.require\s*\(\s*[\'\"]([^\)]+)[\'\"]\s*\)')
 space_regex = re.compile(r' *')
-block_tag_regex = re.compile('@(?=author|deprecated|exception|param|return' +
-                             '|see|throws|version|constructor|type|const' +
-                             '|enum|private|extends|protected|suppress)')
+block_tag_regex = re.compile('(?<!\{)@(?=author|deprecated|exception|param' +
+                             '|return|see|throws|version|constructor|type' +
+                             '|enum|private|extends|protected|suppress' +
+                             '|const|description|override|inheritdoc)', re.I)
 
 ######################################################################
 # HTML helper functions
@@ -171,19 +172,14 @@ class HtmlFile(BasicHtmlFile):
                        href(sym.url(), code(sym.name), basedir) + " .")
             pfx = sym.name + '.'
             for child in sym.children:
-                if not child.data.get('.proto', False):
+                if not child.data.get('is_proto', False):
                     continue
                 name = child.name
                 if name.startswith(pfx):
                     name = '.' + name[len(pfx):]
-                doc = child.data.get('.doc')
-                if name in entries:
-                    if '@inheritDoc' in entries[name][0]:
-                        entries[name][0] = doc
-                else:
-                    entries[name] = [ doc, child, msg ]
-            super_name = sym.data.get('.super')
-            sym = Symbol.get(super_name) if super_name else None
+                if name not in entries:
+                    entries[name] = [ child, msg ]
+            sym = sym.super()
         pfx = mainsym.name + '.'
         for name in self.symbols[1:]:
             sym = Symbol.get(name)
@@ -191,21 +187,21 @@ class HtmlFile(BasicHtmlFile):
                 name = '.' + name[len(pfx):]
             if name in entries:
                 continue
-            entries[name] = [ sym.data.get('.doc'), sym, '' ]
+            entries[name] = [ sym, '' ]
         names = sorted(entries.keys())
         if mainsym.data:
             names = [ mainsym.name ] + names
-            entries[mainsym.name] = [ mainsym.data.get('.doc'), mainsym, '' ]
+            entries[mainsym.name] = [ mainsym, '' ]
 
         if len(lineage) > 1:
             lines = []
             for sym in lineage:
                 url = sym.url() if sym != mainsym else None
                 lines.append(href(url, code(sym.name), basedir))
-            body.append('<p>inheritance: ' + ' &gt;\n'.join(lines) + '\n')
+            body.append('<p class="lineage">' + '<br>\n&gt; '.join(lines) + '\n')
 
         for name in names:
-            doc, sym, comment = entries[name]
+            sym, comment = entries[name]
 
             if sym.is_private():
                 continue
@@ -221,7 +217,7 @@ class HtmlFile(BasicHtmlFile):
                                sym.name.rsplit('.',1)[-1]))
             else:
                 state = sym.state()
-                title = sym.prototype(as_html=True, name=name, doc=doc)
+                title = sym.prototype(as_html=True, name=name)
                 if state in [ "protected", "deprecated" ]:
                     body.append('<div class="hidden">')
                     has_div = True
@@ -236,7 +232,7 @@ class HtmlFile(BasicHtmlFile):
                 body.append('<p>'+comment+'\n')
 
             par = []
-            desc = sym.description(doc=doc)
+            desc = sym.description()
             if desc:
                 par.append(desc)
             if link:
@@ -246,15 +242,15 @@ class HtmlFile(BasicHtmlFile):
             if link:
                 continue
 
-            parts = sym._jsdoc_parts(doc=doc)
-            params = sym.params(doc=doc)
+            parts = sym._jsdoc_parts()
+            params = sym.params()
             interface = []
             if params:
                 for name, tp, desc in params:
                     interface.append((code(name) + ' ' +
                                       span('{' + code(tp) + '}', 'type'),
                                       desc))
-            for tp, cont in parts[1:]:
+            for tp, cont in parts:
                 if tp != "return":
                     continue
                 tp, desc = split_leading_type_info(cont)
@@ -262,9 +258,9 @@ class HtmlFile(BasicHtmlFile):
                                   span('{' + code(tp) + '}', 'type'),
                                   desc))
                 break
-            for tp, cont in parts[1:]:
-                if tp in [ 'param', 'constructor', 'interface', 'extends',
-                           'return', 'protected', 'deprecated' ]:
+            for tp, cont in parts:
+                if tp in [ 'description', 'param', 'constructor', 'interface',
+                           'extends', 'return', 'protected', 'deprecated' ]:
                     continue
                 interface.append(('@'+tp, escape(cont)))
             if interface:
@@ -276,11 +272,11 @@ class HtmlFile(BasicHtmlFile):
 
             rest = []
             for key, val in sym.data.items():
-                if key in [ '.doc', '.is_func', '.proto', '.super' ]:
+                if key in [ 'doc', 'is_func', 'is_proto', 'super' ]:
                     continue
-                if key == '.type' and val == 'class':
+                if key == 'type' and val == 'class':
                     continue
-                if key == '.private' and val == False:
+                if key == 'is_private' and val == False:
                     continue
                 rest.append((key,val))
             if rest:
@@ -312,6 +308,7 @@ class Symbol(object):
         self.children = []
         self.provided_by = None
         self.data = {}
+        self._doc = None
         self._doc_parts = None
 
         self.all_names[name] = self
@@ -321,36 +318,92 @@ class Symbol(object):
             parent.children.append(self)
 
     def type(self):
-        return self.data.get('.type')
+        return self.data.get('type')
 
     def parent(self):
+        """The Symbol for the parent namespace.
+        Example: for the symbol 'a.b.c', this method returns 'a.b'.
+        Returns `None` if the symbol itself is already on the top-level.
+        """
         if '.' not in self.name:
             return None
         return self.get(self.name.rsplit('.', 1)[0])
 
-    def is_private(self):
-        return self.data.get('.private', False)
+    def super(self):
+        """The superclass in the JavaScript class hierarchy.
+        This returns the information given by the '@extends' JsDoc tags.
+        Returns the Symbol representing the superclass, or `None`.
+        """
+        super_name = self.data.get('super')
+        return Symbol.get(super_name) if super_name else None
 
-    def _jsdoc_parts(self, doc=None):
+    def find_in_super(self):
+        """For a class method, find the corresponding method in a superclass.
+        """
+        name = self.name.rsplit('.', 1)[-1]
+        cls = self.parent()
+        while cls:
+            scls = cls.super()
+            if not scls:
+                return None
+            sym = Symbol.get(scls.name + '.' + name)
+            if sym:
+                return sym
+        return None
+
+    def is_private(self):
+        return self.data.get('is_private', False)
+
+    def _jsdoc_parts(self):
         if not self._doc_parts:
-            text = self.data.get('.doc', '') if doc is None else doc
-            blocks = block_tag_regex.split(text)
-            parts = [ ('description', blocks[0].strip()) ]
-            for block in blocks[1:]:
+            doc = self.data.get('doc', '').lstrip()
+            if not doc.startswith('@'):
+                doc = '@description\n' + doc
+            blocks = block_tag_regex.split(doc)[1:]
+            parts = [ ]
+            has_inherit_doc = False
+            has_override = False
+            for block in blocks:
                 part = re.split(r'\b\s*', block, 1) + [ '' ]
-                parts.append((part[0], part[1]))
+                key = part[0].lower()
+                parts.append((key, part[1]))
+                if key == 'inheritdoc':
+                    has_inherit_doc = True
+                elif key == 'override':
+                    has_override = True
+            if has_inherit_doc:
+                superclass = self.find_in_super()
+                if superclass:
+                    parts = superclass._jsdoc_parts()
+                else:
+                    tmpl = "error: %s uses '@inheritDoc' but has no superclass"
+                    print(tmpl%self.name, file=sys.stderr)
+            elif has_override:
+                superclass = self.find_in_super()
+                if superclass:
+                    keys = set(key for key, val in parts)
+                    for key,val in superclass._jsdoc_parts():
+                        if key not in keys:
+                            parts.append((key, val))
+                else:
+                    tmpl = "error: %s uses '@override' but has no superclass"
+                    print(tmpl%self.name, file=sys.stderr)
             self._doc_parts = parts
         return self._doc_parts
 
     def state(self):
         parts = self._jsdoc_parts()
-        for state in [ "deprecated", "protected" ]:
-            if any(key == state for key, _ in parts):
-                return state
+        for key, _ in parts:
+            if key in [ "deprecated", "protected" ]:
+                return key
         return None
 
     def description(self, doc=None):
-        return self._jsdoc_parts(doc)[0][1].strip()
+        parts = self._jsdoc_parts()
+        for key, val in parts:
+            if key == "description":
+                return val.strip()
+        return ''
 
     def deprecated(self):
         for key, val in self._jsdoc_parts():
@@ -359,7 +412,7 @@ class Symbol(object):
         return None
 
     def params(self, doc=None):
-        parts = self._jsdoc_parts(doc=doc)
+        parts = self._jsdoc_parts()
         params = []
         for key, cont in parts:
             if key != 'param':
@@ -378,7 +431,7 @@ class Symbol(object):
 
     def prototype(self, as_html=False, max_column=75, name=None, doc=None):
         name = self.name if name is None else name
-        if self.data.get('.is_func', False):
+        if self.data.get('is_func', False):
             params = self.params(doc=doc)
             pnames = []
             for x in params:
@@ -463,35 +516,18 @@ class JsFile(object):
     @staticmethod
     def strip_comment(comment):
         """Strip a JsDoc comment of unnecessary whitespace, leading *s etc."""
-
-        if '\n' not in comment:
-            comment = comment + '\n'
-        lines = (comment + '*').splitlines()
-        if all(l.lstrip().startswith('*') for l in lines[1:]):
-            for i in range(1, len(lines)):
-                lines[i] = comment_cont_regex.sub('', lines[i])
-        else:
-            lines[-1] = lines[-1][:-1]
-
-        # right
-        lines[0] = ' ' + lines[0]
-        lines = [ l.rstrip() for l in lines ]
-
-        # top
+        lines = [ re.sub('^\s*\*+', '', l.rstrip())
+                  for l in comment.splitlines() ]
         while lines and lines[0] == '':
             del lines[0]
-
-        # bottom
         while lines and lines[-1] == '':
             del lines[-1]
-
-        # left
-        indent = min(len(space_regex.match(l).group()) if l else 999
-                     for l in lines)
-        if indent < 999:
+        indents = [ len(space_regex.match(l).group()) for l in lines ]
+        if indents:
+            indent = min(indents)
             lines = [ l[indent:] for l in lines ]
 
-        return '\n'.join(lines).lstrip()
+        return '\n'.join(lines)
 
     @staticmethod
     def from_source(fname):
@@ -558,27 +594,27 @@ class JsFile(object):
         current_class = None
         for name, is_func, comment in self.symbols:
             data = {
-                '.is_func': is_func,
-                '.doc': comment,
+                'is_func': is_func,
+                'doc': comment,
                 }
-            data['.private'] = '@private' in comment
+            data['is_private'] = '@private' in comment
             if '.prototype.' in name:
-                name = '.'.join(name.split('.prototype.'))
-                data['.proto'] = True
+                name = name.replace('.prototype.', '.', 1)
+                data['is_proto'] = True
             else:
-                data['.proto'] = False
+                data['is_proto'] = False
 
             if '@constructor' in comment:
-                data['.type'] = 'class'
+                data['type'] = 'class'
             if '@interface' in comment:
-                data['.type'] = 'interface'
+                data['type'] = 'interface'
             m = extends_regex.search(comment)
             if m:
-                data['.super'] = m.group(1)
+                data['super'] = m.group(1)
 
             # evil hack for inline declarations, not yet sure
             # whether this is a good idea ...
-            if data.get('.type') in [ 'class', 'interface' ]:
+            if data.get('type') in [ 'class', 'interface' ]:
                 current_class = name
             elif name.startswith('this.') and '.' not in name[5:] and current_class:
                 _, elem_name = name.split('.')
