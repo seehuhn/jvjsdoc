@@ -25,7 +25,7 @@ H1 {
     page-break-after: avoid;
 }
 H2 {
-    margin: 2ex 0 .5ex -32px;
+    margin: 3ex 0 .5ex -32px;
 
     font-size: 13pt;
     line-height: 110%;
@@ -126,6 +126,14 @@ BUTTON {
 .hidden > *:first-child:hover {
     text-decoration: underline;
     color: black;
+}
+
+.lineage {
+    margin: 1ex 0;
+    border-left: .5em solid #DDD;
+    padding-left: .5em;
+    border-bottom: 1px solid #CCC;
+    padding-bottom: .5ex;
 }
 
 .ac-renderer {

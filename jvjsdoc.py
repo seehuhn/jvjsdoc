@@ -259,8 +259,9 @@ class HtmlFile(BasicHtmlFile):
                                   desc))
                 break
             for tp, cont in parts:
-                if tp in [ 'description', 'param', 'constructor', 'interface',
-                           'extends', 'return', 'protected', 'deprecated' ]:
+                if tp in [ 'constructor', 'deprecated', 'description',
+                           'extends', 'inheritdoc', 'interface', 'override',
+                           'param', 'protected', 'return', ]:
                     continue
                 interface.append(('@'+tp, escape(cont)))
             if interface:
@@ -274,7 +275,7 @@ class HtmlFile(BasicHtmlFile):
             for key, val in sym.data.items():
                 if key in [ 'doc', 'is_func', 'is_proto', 'super' ]:
                     continue
-                if key == 'type' and val == 'class':
+                if key == 'type' and val in [ 'class', 'enum' ]:
                     continue
                 if key == 'is_private' and val == False:
                     continue
@@ -474,6 +475,8 @@ class Symbol(object):
         name = code(self.name) if as_html else self.name
         if self.type() == 'class':
             return 'The %s Class'%name
+        elif self.type() == 'enum':
+            return 'The %s Enum'%name
         elif self.type() == 'interface':
             return 'The %s Interface'%name
         elif self.children:
@@ -555,14 +558,13 @@ class JsFile(object):
             else:
                 sym.provided_by = fname
 
+        parse_enum = False
         for part in comment_start_regex.split("START\n"+body+"\nEND")[1:]:
             try:
                 comment, part = comment_end_regex.split(part, 1)
             except:
                 tmpl = "error: %s: unclosed comment, ignored"
                 print(tmpl%fname, file=sys.stderr)
-                continue
-            if '@' not in comment:
                 continue
 
             comment = jsfile.strip_comment(comment)
@@ -572,22 +574,57 @@ class JsFile(object):
             if "@license" in comment:
                 jsfile.license = comment
                 continue
+            if "@enum" in comment:
+                if '{' in part:
+                    parse_enum = True;
+                    bracket_level = 0;
+                    enum_name = None
 
             part = all_comment_regex.sub('', part).lstrip()
+
             m = assign_regex.match(part)
             if m:
                 name = m.group(1)
                 is_func = (m.group(2) != None)
                 jsfile.symbols.append((name, is_func, comment))
-                continue
-            m = function_regex.match(part)
-            if m:
-                jsfile.symbols.append((m.group(1), True, comment))
-                continue
+                if parse_enum:
+                    enum_name = name
+            else:
+                m = function_regex.match(part)
+                if m:
+                    jsfile.symbols.append((m.group(1), True, comment))
+                    continue
+
+            if parse_enum:
+                start = 0
+                end = len(part)
+                for k, c in enumerate(part):
+                    if c == '{':
+                        if bracket_level == 0:
+                            start = k+1
+                        bracket_level += 1
+                    elif c == '}':
+                        bracket_level -= 1
+                        if bracket_level == 0:
+                            parse_enum = False
+                            end = k
+                            break
+                names = re.findall('^\s*(' + js_name_part + ')\s*:',
+                                   part[start:end],
+                                   re.M)
+                c = comment if "@enum" not in comment else ''
+                for name in names:
+                    if enum_name:
+                        jsfile.symbols.append((enum_name + '.' + name, False,
+                                               c))
+                    c = ''
 
             # Hopefully everything left at this point is unimportant
             # stuff like type annotations.  We ignore it ...
 
+        if parse_enum:
+            print("error: cannot find end of enum %s" % enum_name,
+                  file=sys.stderr)
         return jsfile
 
     def extract_data(self):
@@ -606,8 +643,10 @@ class JsFile(object):
 
             if '@constructor' in comment:
                 data['type'] = 'class'
-            if '@interface' in comment:
+            elif '@interface' in comment:
                 data['type'] = 'interface'
+            elif '@enum' in comment:
+                data['type'] = 'enum'
             m = extends_regex.search(comment)
             if m:
                 data['super'] = m.group(1)
