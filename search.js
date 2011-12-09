@@ -5,6 +5,7 @@ goog.require('goog.dom.classes');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.ui.AutoComplete.Basic');
+goog.require('goog.ui.AutoComplete.EventType');
 
 /**
  * Initialise the javascript supported search box.
@@ -21,6 +22,9 @@ jv.enableSearch = function() {
     }
 
     var ac = new goog.ui.AutoComplete.Basic(keys, search, false);
+    ac.setMaxMatches(20);
+    goog.events.listen(ac, goog.ui.AutoComplete.EventType.UPDATE,
+                       function(e) { go.click(); });
     goog.events.listen(search, goog.events.EventType.KEYDOWN,
                        function(e) {
                            setTimeout(function() {

@@ -158,3 +158,10 @@ BUTTON {
 .ac-active {
   background-color: #b2b4bf;
 }
+
+@media print {
+    /* no page navigation */
+    .nav, .noprint {
+        display: none;
+    }
+}
