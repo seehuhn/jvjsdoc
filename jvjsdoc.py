@@ -6,6 +6,7 @@ from html import escape
 import os, os.path
 import re
 import sys
+import time
 
 
 VERSION = "0.5"
@@ -35,7 +36,8 @@ var jvBaseDir = '@<.>';
 <h1>{HTMLtitle}</h1>
 {body}
 <p class="footer">Documentation generated using
-<a href="http://www.seehuhn.de/pages/jvjsdoc">JvJsDoc</a>, version {version}.
+<a href="http://www.seehuhn.de/pages/jvjsdoc">JvJsDoc</a>, version {version}
+on {date}.
 </body>
 </html>
 """
@@ -90,6 +92,7 @@ class BasicFile(object):
 
     def __init__(self, fname):
         self.fname = fname
+        self.basedir = os.path.dirname(fname)
 
     def write(self, contents):
         full = os.path.join(OUTPUT_PATH, self.fname)
@@ -117,13 +120,16 @@ class BasicHtmlFile(BasicFile):
             HTMLtitle = html_title,
             breadcrumbs = '\n'.join('<li>' + x for x in self.breadcrumbs),
             body = body,
-            version = VERSION)
+            version = VERSION,
+            date = time.strftime("%Y-%m-%d"))
         super().write(text)
 
-def split_leading_type_info(s):
+def split_leading_type_info(s, braces_optional=False):
     s = s.lstrip()
-    if not s or s[0] != '{':
+    if not s or (s[0] != '{' and not braces_optional):
         return ("", s)
+    if s[0] != '{':
+        return (s, "")
     lvl = 1
     for pos,c in enumerate(s[1:]):
         if c == '{':
@@ -154,8 +160,16 @@ class HtmlFile(BasicHtmlFile):
     def add_symbol(self, name):
         self.symbols.append(name)
 
+    def format_type_info(self, typestr):
+        def repl_fn(m):
+            name = m.group(1)
+            sym = Symbol.get(name, True)
+            url = sym.url() if sym else None
+            return href(url, code(name), self.basedir)
+        typestr = re.sub('(' + js_name + ')', repl_fn, typestr)
+        return span('{' + typestr + '}', 'type')
+
     def generate(self):
-        basedir = os.path.dirname(self.fname)
         body = []
 
         mainsym = Symbol.get(self.symbols[0])
@@ -163,7 +177,7 @@ class HtmlFile(BasicHtmlFile):
         parts = mainsym.name.split('.')[:-1]
         for k, part in enumerate(parts):
             name = '.'.join(parts[:k+1])
-            crumb = href(Symbol.get(name).url(), part, basedir)
+            crumb = href(Symbol.get(name).url(), part, self.basedir)
             self.breadcrumbs.append(crumb)
 
         entries = {}
@@ -175,7 +189,7 @@ class HtmlFile(BasicHtmlFile):
                 msg = ""
             else:
                 msg = ("Inherited from " +
-                       href(sym.url(), code(sym.name), basedir) + " .")
+                       href(sym.url(), code(sym.name), self.basedir) + " .")
             pfx = sym.name + '.'
             for child in sym.children:
                 if not child.data.get('is_proto', False):
@@ -203,8 +217,9 @@ class HtmlFile(BasicHtmlFile):
             lines = []
             for sym in lineage:
                 url = sym.url() if sym != mainsym else None
-                lines.append(href(url, code(sym.name), basedir))
-            body.append('<p class="lineage">' + '<br>\n&gt; '.join(lines) + '\n')
+                lines.append(href(url, code(sym.name), self.basedir))
+            body.append('<p class="lineage">' + '<br>\n&gt; '.join(lines)
+                        + '\n')
 
         for name in names:
             sym, comment = entries[name]
@@ -219,8 +234,7 @@ class HtmlFile(BasicHtmlFile):
             has_div = False
             if link:
                 title = sym.title(as_html=True)
-                body.append(h2(href(link, title, basedir),
-                               sym.name.rsplit('.',1)[-1]))
+                title = href(link, title, self.basedir)
             else:
                 state = sym.state()
                 title = sym.prototype(as_html=True, name=name)
@@ -228,8 +242,11 @@ class HtmlFile(BasicHtmlFile):
                     body.append('<div class="hidden">')
                     has_div = True
                     title += ' [%s]' % state
-                body.append(h2(title,
-                               sym.name.rsplit('.',1)[-1]) + '\n')
+            sym_type = sym.get_tag('type')
+            if sym_type:
+                sym_type, _ = split_leading_type_info(sym_type, True)
+                title += ' ' + self.format_type_info(sym_type)
+            body.append(h2(title, sym.name.rsplit('.',1)[-1]) + '\n')
 
             deprecated = sym.deprecated()
             if deprecated:
@@ -242,32 +259,32 @@ class HtmlFile(BasicHtmlFile):
             if desc:
                 par.append(desc)
             if link:
-                par.append(href(link, '&hellip;&nbsp;more', basedir))
+                par.append(href(link, '&hellip;&nbsp;more', self.basedir))
             if par:
                 body.append('<p>' + ''.join(x+'\n' for x in par))
             if link:
                 continue
 
-            parts = sym._jsdoc_parts()
             params = sym.params()
             interface = []
             if params:
                 for name, tp, desc in params:
                     interface.append((code(name) + ' ' +
-                                      span('{' + code(tp) + '}', 'type'),
+                                      self.format_type_info(tp),
                                       desc))
+            parts = sym._jsdoc_parts()
             for tp, cont in parts:
                 if tp != "return":
                     continue
                 tp, desc = split_leading_type_info(cont)
                 interface.append(('returns ' +
-                                  span('{' + code(tp) + '}', 'type'),
+                                  self.format_type_info(tp),
                                   desc))
                 break
             for tp, cont in parts:
                 if tp in [ 'constructor', 'deprecated', 'description',
                            'extends', 'inheritdoc', 'interface', 'override',
-                           'param', 'protected', 'return', ]:
+                           'param', 'protected', 'return', 'type' ]:
                     continue
                 interface.append(('@'+tp, escape(cont)))
             if interface:
@@ -305,9 +322,11 @@ class Symbol(object):
     all_names = {}
 
     @staticmethod
-    def get(name):
+    def get(name, no_create=False):
         if name in Symbol.all_names:
             return Symbol.all_names[name]
+        if no_create:
+            return None
         return Symbol(name)
 
     def __init__(self, name):
@@ -358,9 +377,6 @@ class Symbol(object):
                 return sym
         return None
 
-    def is_private(self):
-        return self.data.get('is_private', False)
-
     def _jsdoc_parts(self):
         if not self._doc_parts:
             doc = self.data.get('doc', '').lstrip()
@@ -398,6 +414,18 @@ class Symbol(object):
             self._doc_parts = parts
         return self._doc_parts
 
+    def get_tag(self, key, default=None):
+        """Get the value of the JsDoc tag `key`.
+        If the tags is not present, `default` is returned.
+        """
+        for k, val in self._jsdoc_parts():
+            if k == key:
+                return val
+        return default
+
+    def is_private(self):
+        return self.data.get('is_private', False)
+
     def state(self):
         parts = self._jsdoc_parts()
         for key, _ in parts:
@@ -406,17 +434,10 @@ class Symbol(object):
         return None
 
     def description(self, doc=None):
-        parts = self._jsdoc_parts()
-        for key, val in parts:
-            if key == "description":
-                return val.strip()
-        return ''
+        return self.get_tag('description', '').strip()
 
     def deprecated(self):
-        for key, val in self._jsdoc_parts():
-            if key == "deprecated":
-                return val
-        return None
+        return self.get_tag('deprecated')
 
     def params(self, doc=None):
         parts = self._jsdoc_parts()
@@ -429,10 +450,9 @@ class Symbol(object):
             if m:
                 params.append((m.group(1), tp, m.group(2)))
             else:
-                # TODO: parse balanced groups of braces, e.g.
-                # '{!{key: string, caption: string}}' is a valid type.
                 params.append(('???', '???', '???'))
-                print("error: cannot parse parameter information:", file=sys.stderr)
+                print("error: cannot parse parameter information:",
+                      file=sys.stderr)
                 print("       " + cont, file=sys.stderr)
         return params
 

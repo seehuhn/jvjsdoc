@@ -48,7 +48,7 @@ jv.enableSearch = function() {
 };
 
 /**
- * Enable to un-hide information about protected and deprecated methods.
+ * Allow to un-hide information about protected and deprecated methods.
  */
 jv.enableHiddenContent = function() {
     var hidden = goog.dom.getElementsByClass('hidden');

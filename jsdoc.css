@@ -36,7 +36,10 @@ H2 {
 H2 > CODE {
     white-space: pre;
 }
-SPAN.type {
+.type {
+    color: gray;
+}
+.type A {
     color: gray;
 }
 CODE {
