@@ -7,7 +7,7 @@ HTML {
     background: white;
 }
 BODY {
-    margin: 0 auto 4ex auto;
+    margin: 0 auto;
     border: none;
     padding: 0 16px 0 48px;
     overflow: visible;
@@ -102,7 +102,7 @@ UL.nav > LI:last-child:before {
 
 INPUT#search {
     margin: 0;
-    border: 1px solid black;
+    border: 1px solid #999;
     padding: 1px;
     width: 12em;
     font: 12pt/100% arial, sans-serif, symbol;
@@ -110,6 +110,20 @@ INPUT#search {
 BUTTON {
     margin: 0 0 0 1ex;
     font: 12pt/100% arial, sans-serif, symbol;
+}
+
+.lineage {
+    margin: 1ex 0;
+    border-left: .5em solid #DDD;
+    padding-left: .5em;
+    border-bottom: 1px solid #CCC;
+    padding-bottom: .5ex;
+}
+
+.footer {
+    margin: 6ex 0 .5ex -32px;
+    font-size: smaller;
+    color: gray;
 }
 
 .off {
@@ -126,14 +140,6 @@ BUTTON {
 .hidden > *:first-child:hover {
     text-decoration: underline;
     color: black;
-}
-
-.lineage {
-    margin: 1ex 0;
-    border-left: .5em solid #DDD;
-    padding-left: .5em;
-    border-bottom: 1px solid #CCC;
-    padding-bottom: .5ex;
 }
 
 .ac-renderer {

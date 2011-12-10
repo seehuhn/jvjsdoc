@@ -8,6 +8,9 @@ import re
 import sys
 
 
+VERSION = "0.5"
+
+
 OUTPUT_PATH = "tmp"
 
 HTML_TEMPLATE = """
@@ -31,6 +34,8 @@ var jvBaseDir = '@<.>';
 </ul>
 <h1>{HTMLtitle}</h1>
 {body}
+<p class="footer">Documentation generated using
+<a href="http://www.seehuhn.de/pages/jvjsdoc">JvJsDoc</a>, version {version}.
 </body>
 </html>
 """
@@ -111,7 +116,8 @@ class BasicHtmlFile(BasicFile):
             title = title,
             HTMLtitle = html_title,
             breadcrumbs = '\n'.join('<li>' + x for x in self.breadcrumbs),
-            body = body)
+            body = body,
+            version = VERSION)
         super().write(text)
 
 def split_leading_type_info(s):
