@@ -1,3 +1,102 @@
-- uses python3
-- if python 3 is not your default python, call configure like this:
-  ./configure PYTHON=python3
+JvJsDoc - a JSDoc documentation generator for use with the closure library
+
+
+   JvJsDoc is a program to extract documentation from JavaScript
+source code and to present the collected information in a set of
+HTML pages.  It is meant to be used together with the Google Closure
+Library and the Google Closure Compiler.  Features of JvJsDoc include
+the following:
+
+- Generates one HTML page with documentation per class/namespace.
+- A search box in the HTML output allows to quickly find the
+  documentation for any given symbol.
+- Can optionally include the Closure Library documentation into the
+  output to seamlessly document methods inherited from closure
+  library-provided classes etc.
+- JvJsDoc is written in Python and requires Python version 3.2 or
+  newer to run.
+
+   The development of JvJsDoc is still at an early stage, and there
+are still several known shortcomings of the program (e.g. inline JSDoc
+comments are not yet handled), but it works well enought that it is
+already useful for day-to-day work.
+
+   Please email any suggestions and bug reports to Jochen Voss
+<voss@seehuhn.de>.  Your message should include the JvJsDoc version
+number, as obtained by the command 'jvjsdoc -V'.
+
+   The JvJsDoc homepage can be found at http://seehuhn.de/pages/jvjsdoc .
+
+
+INSTALLATION
+============
+
+   For installation of JvJsDoc you will need version 3.2 or newer of
+the Python interpreter installed.  Optionally, to include documentation
+of Closure Library provided symbols in the generated output, the
+Closure Library JavaScript source needs to be available.
+
+   Generic installation instructions are in the file "INSTALL".  On
+most systems, the following commands should be sufficient:
+
+	./configure
+	make
+	make install
+
+   If you get the error message "no suitable Python interpreter
+found", this indicates that the configure script couldn't find a
+sufficently new version of Python.  You can explicitly specify the
+location of the python interpreter to use, using the PYTHON
+configuration variable like this:
+
+        ./configure PYTHON=/opt/local/bin/python3
+
+   If you have the Closure Library source code installed, you can
+configure JvJsDoc with the '--with-closure-library' option, to include
+the Closure Libary documentation:
+
+        ./configure --with-closure-library=DIR
+
+Here, DIR should be the directory which contains the
+"closure/goog/deps.js" file and the "closure/bin/build/" directory.
+This configuration option enables the '-g' option of JvJsDoc.
+
+
+USAGE WITHOUT INSTALLATION
+==========================
+
+   For easier experimenting, JvJsDoc can be used without installation.
+To do so, unpack the source somewhere and then run JsJsDoc as
+"./jvjsdoc.py" from inside the source directory (note the trailing
+".py") in the command name.  You may need to adjust the name of the
+python interpreter given in the first line of the "./jvjsdoc.py"
+script in order for this to work.
+
+
+JvJsDoc USAGE
+=============
+
+   Information about all command line options can be found by running
+the command "jvjsdoc -h".  Basic usage is
+
+        jvjsdoc -o htmldir jsdir1 jsdir2 ...
+
+This recursively reads all javascript files found in the given
+directories jsdir1, jsdir2, ... and extract all JSDoc tags.  The tags
+are used to construct HTML files which are placed underneath the
+'htmldir' directory (which is created if necessary).  A good starting
+point for the generated documentation is the output file
+"htmldir/index.html".
+
+
+REFERENCES
+==========
+
+- The Google Closure Library:
+  http://code.google.com/closure/library/
+- The Google Closure Compiler
+  http://code.google.com/closure/compiler/
+- The jsdoc-toolkit:
+  http://code.google.com/p/jsdoc-toolkit/
+- The Google JavaScript Style Guide has advice on using JSDoc tags:
+  http://google-styleguide.googlecode.com/svn/trunk/javascriptguide.xml?showone=Comments#Comments

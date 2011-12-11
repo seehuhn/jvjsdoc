@@ -5,7 +5,7 @@ AC_INIT(jvjsdoc, 0.5, voss@seehuhn.de)
 AM_INIT_AUTOMAKE
 
 dnl Python support
-AM_PATH_PYTHON
+AM_PATH_PYTHON(3.2)
 
 dnl Google closure library
 AC_ARG_WITH([closure-library],

@@ -26,7 +26,21 @@ import os, os.path
 import re
 import time
 
-from config import VERSION, DATA_DIR, CLOSURE_BASE
+try:
+    from config import VERSION, DATA_DIR, CLOSURE_BASE
+except ImportError:
+    try:
+        configure_ac = open("configure.ac", 'r').read()
+    except:
+        configure_ac = ''
+    m = re.search(r'AC_INIT\([^,]*,\s*([^,]*?)\s*,', configure_ac, re.M)
+    if not m:
+        raise
+
+    # program seems to be run from the unconfigured source directory
+    VERSION = m.group(1)
+    DATA_DIR = '.'
+    CLOSURE_BASE = ''
 
 ######################################################################
 # pre-compiled regexps
@@ -784,18 +798,18 @@ if CLOSURE_BASE:
         action='store_true',
         help="include the Google closure library documentation")
 parser.add_argument(
-    '-o', '--output-dir',
-    metavar='ROOT',
-    action='store',
-    required=True,
-    help="output directory for the generated HTML documentation")
-parser.add_argument(
     '-v', '--verbose',
     action='store_true')
 parser.add_argument(
     '-V', '--version',
     action='version',
     version='%(prog)s ' + VERSION)
+parser.add_argument(
+    '-o', '--output-dir',
+    metavar='ROOT',
+    action='store',
+    required=True,
+    help="output directory for the generated HTML documentation")
 parser.add_argument(
     'source_dirs',
     metavar='DIR',

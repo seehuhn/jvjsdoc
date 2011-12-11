@@ -1,8 +1,5 @@
-- write a manual
-- write web page
-- restrict inline HTML to a safe subset (no <button>)
-- explore where the stray entries in the index come from
-- clean up the code a bit so that otheres can read/modify it
+- clean up the code so that otheres can more easily read/modify it
 - handle inline JsDoc tags
-- upload to github
+- restrict inline HTML to a safe subset (no <button>)
+- explore where the stray index entries come from
 - work around MacOSX's case-insensitive file names
