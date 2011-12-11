@@ -1,67 +1,57 @@
 #! /usr/bin/env python3.2
+# jvjsdoc - a JsDoc documentation generator for use with the closure library
+# Copyright (C) 2011  Jochen Voss <voss@seehuhn.de>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+# FIX PATH
 
 from fnmatch import fnmatch
-from urllib.parse import quote_plus
 from html import escape
+from urllib.parse import quote_plus
+import argparse
 import os, os.path
 import re
-import sys
 import time
 
-
-VERSION = "0.5"
-
-
-OUTPUT_PATH = "tmp"
-
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>{title}</title>
-<link rel="stylesheet" href="@<jsdoc.css>" type="text/css">
-<script type="text/javascript">
-var jvBaseDir = '@<.>';
-</script>
-<script type="text/javascript" src="@<index.js>"></script>
-<script type="text/javascript" src="@<jsdoc.js>"></script>
-</head>
-<body onload="init()">
-<ul class="nav">
-<li><a href="@<index.html>">index</a>
-{breadcrumbs}
-<li class="off">search: <input id="search"></input><button id="go">Go</button>
-</ul>
-<h1>{HTMLtitle}</h1>
-{body}
-<p class="footer">Documentation generated using
-<a href="http://www.seehuhn.de/pages/jvjsdoc">JvJsDoc</a>, version {version}
-on {date}.
-</body>
-</html>
-"""
+from config import VERSION, DATA_DIR, CLOSURE_BASE
 
 ######################################################################
 # pre-compiled regexps
+
+from collections import defaultdict
 
 js_name_part = r'[a-zA-Z$_][0-9a-zA-Z$_]*'
 js_name = js_name_part + r'(?:\.' + js_name_part + ')*'
 
 all_comment_regex = re.compile(r'(/\*.*?\*/|//.*?$)', re.M|re.S)
-assign_regex = re.compile(r'(?:var\s+)?(' + js_name + r')\s*(?:=\s*(function|goog\.abstractMethod)?|;)')
+assign_regex = re.compile(
+    r'(?:var\s+)?(' + js_name + r')\s*(?:=\s*(function|goog\.abstractMethod)?|;)')
+block_tag_regex = re.compile(
+    '(?<!\{)@(?=author|deprecated|exception|param|return|see|throws|version'
+    + '|constructor|type|enum|private|extends|protected|suppress|const'
+    + '|description|override|inheritdoc)', re.I)
 comment_cont_regex = re.compile(r'^\s*\*')
 comment_end_regex = re.compile(r'\*/')
 comment_start_regex = re.compile(r'/\*\*')
 extends_regex = re.compile(r'@extends\s*\{\s*(' + js_name + r')\s*\}')
 function_regex = re.compile(r'function\s*(' + js_name_part + r')\s*\(')
+leading_stars_regex = re.compile(r'^\s*\*+')
 prov_regex = re.compile(r'goog\.provide\s*\(\s*[\'\"]([^\)]+)[\'\"]\s*\)')
 req_regex = re.compile(r'goog\.require\s*\(\s*[\'\"]([^\)]+)[\'\"]\s*\)')
 space_regex = re.compile(r' *')
-block_tag_regex = re.compile('(?<!\{)@(?=author|deprecated|exception|param' +
-                             '|return|see|throws|version|constructor|type' +
-                             '|enum|private|extends|protected|suppress' +
-                             '|const|description|override|inheritdoc)', re.I)
 
 ######################################################################
 # HTML helper functions
@@ -88,6 +78,14 @@ def href(link, text, basedir=None):
 ######################################################################
 # generation of the output files
 
+def find_data_file(name):
+    for path in [ '.', DATA_DIR ]:
+        full = os.path.join(path, name)
+        if os.path.exists(full):
+            return full
+    print('error: cannot find data file "%s"'%name, file=sys.stderr)
+    raise SystemExit(1)
+
 class BasicFile(object):
 
     def __init__(self, fname):
@@ -95,26 +93,36 @@ class BasicFile(object):
         self.basedir = os.path.dirname(fname)
 
     def write(self, contents):
-        full = os.path.join(OUTPUT_PATH, self.fname)
-        print("writing %s ..." % full, end=' ')
+        full = os.path.join(args.output_dir, self.fname)
+        if args.verbose:
+            print("writing %s ..." % full, end=' ')
         os.makedirs(os.path.dirname(full), exist_ok=True)
         f = open(full, 'w')
         f.write(contents)
         f.close()
-        print("done")
+        if args.verbose:
+            print("done")
 
 class BasicHtmlFile(BasicFile):
+
+    template = None
 
     def __init__(self, fname):
         super().__init__(fname)
         self.breadcrumbs = []
 
+    @staticmethod
+    def _get_template():
+        if BasicHtmlFile.template is None:
+            fname = find_data_file("template.html")
+            BasicHtmlFile.template = open(fname).read()
+        return BasicHtmlFile.template
+
     def write(self, title, html_title, body):
         path = os.path.dirname(self.fname)
         def repl_fn(m):
             return os.path.relpath(m.group(1), path)
-        tmpl = re.sub('@<([^>]*)>', repl_fn, HTML_TEMPLATE)
-
+        tmpl = re.sub('@<([^>]*)>', repl_fn, self._get_template())
         text = tmpl.format(
             title = title,
             HTMLtitle = html_title,
@@ -399,7 +407,7 @@ class Symbol(object):
                 if superclass:
                     parts = superclass._jsdoc_parts()
                 else:
-                    tmpl = "error: %s uses '@inheritDoc' but has no superclass"
+                    tmpl = "error: %s uses '@inheritDoc' but no superclass found"
                     print(tmpl%self.name, file=sys.stderr)
             elif has_override:
                 superclass = self.find_in_super()
@@ -409,7 +417,7 @@ class Symbol(object):
                         if key not in keys:
                             parts.append((key, val))
                 else:
-                    tmpl = "error: %s uses '@override' but has no superclass"
+                    tmpl = "error: %s uses '@override' but no superclass found"
                     print(tmpl%self.name, file=sys.stderr)
             self._doc_parts = parts
         return self._doc_parts
@@ -545,7 +553,7 @@ class JsFile(object):
     @staticmethod
     def strip_comment(comment):
         """Strip a JsDoc comment of unnecessary whitespace, leading *s etc."""
-        lines = [ re.sub('^\s*\*+', '', l.rstrip())
+        lines = [ leading_stars_regex.sub('', l.rstrip())
                   for l in comment.splitlines() ]
         while lines and lines[0] == '':
             del lines[0]
@@ -685,9 +693,15 @@ class JsFile(object):
                 _, elem_name = name.split('.')
                 name = current_class + '.' + elem_name
 
+            if name.startswith('this.'):
+                continue
+
             sym = Symbol.get(name)
             if sym.data:
-                print("error: multiple definitions for %s" % name, file=sys.stderr)
+                print("error: multiple definitions for %s" % name,
+                      file=sys.stderr)
+                if sym.provided_by:
+                    print("  using definition from " + sym.provided_by)
                 print("  ignoring definition in " + f, file=sys.stderr)
                 continue
             sym.data = data
@@ -755,16 +769,55 @@ def sort_files(tree):
             sorted_files.append(best_f)
             done.add(best_f)
     return sorted_files
+
+######################################################################
+# main program
 
+# parse the command line arguments
+parser = argparse.ArgumentParser(
+    description="""A JsDoc documentation generator for use with the closure
+library.""",
+    epilog="Please report any bugs to Jochen Voss <voss@seehuhn.de>.")
+if CLOSURE_BASE:
+    parser.add_argument(
+        '-g', '--closure',
+        action='store_true',
+        help="include the Google closure library documentation")
+parser.add_argument(
+    '-o', '--output-dir',
+    metavar='ROOT',
+    action='store',
+    required=True,
+    help="output directory for the generated HTML documentation")
+parser.add_argument(
+    '-v', '--verbose',
+    action='store_true')
+parser.add_argument(
+    '-V', '--version',
+    action='version',
+    version='%(prog)s ' + VERSION)
+parser.add_argument(
+    'source_dirs',
+    metavar='DIR',
+    type=str,
+    nargs='+',
+    action='store',
+    help="directories containing JavaScript source files")
+args = parser.parse_args()
+
+if args.closure:
+    args.source_dirs = [ CLOSURE_BASE ] + args.source_dirs
+
+# read the javascript source files
 sources = {}
-for root in sys.argv[1:]:
+for root in args.source_dirs:
     read_files(root, sources)
 sorted_files = sort_files(sources)
-
 for f in sorted_files:
     jsfile = sources[f]
     jsfile.extract_data()
 
+# write HTML files for classes/name spaces
 for name in sorted(Symbol.all_names.keys()):
     sym = Symbol.get(name)
     fname = sym.filename()
@@ -780,7 +833,7 @@ for fname in sorted(HtmlFile.all_files.keys()):
     html = HtmlFile.all_files[fname]
     html.generate()
 
-# index.html
+# write index.html
 body = []
 body.append('<ul class="index">\n')
 for name in sorted(Symbol.all_names.keys()):
@@ -801,7 +854,7 @@ for name in sorted(Symbol.all_names.keys()):
 body.append('</ul>\n')
 BasicHtmlFile("index.html").write("Index", "Index", ''.join(body))
 
-# index.js
+# write index.js
 body = []
 body.append('var jvXRef = {\n')
 for name in sorted(Symbol.all_names.keys()):
@@ -815,8 +868,10 @@ for name in sorted(Symbol.all_names.keys()):
 body.append('};\n')
 BasicFile("index.js").write(''.join(body))
 
-# jsdoc.css
-BasicFile("jsdoc.css").write(open("jsdoc.css").read())
+# write jsdoc.css
+fname = find_data_file("jsdoc.css")
+BasicFile("jsdoc.css").write(open(fname).read())
 
-# jsdoc.js
-BasicFile("jsdoc.js").write(open("jsdoc.js").read())
+# write jsdoc.js
+fname = find_data_file("jsdoc.js")
+BasicFile("jsdoc.js").write(open(fname).read())

@@ -1,4 +1,4 @@
-goog.provide('jv');
+goog.provide('jvjsdoc');
 
 goog.require('goog.dom');
 goog.require('goog.dom.classes');
@@ -10,7 +10,7 @@ goog.require('goog.ui.AutoComplete.EventType');
 /**
  * Initialise the javascript supported search box.
  */
-jv.enableSearch = function() {
+jvjsdoc.enableSearch = function() {
     var search = goog.dom.getElement('search');
     var go = goog.dom.getElement('go');
     var xRef = window['jvXRef'];
@@ -50,7 +50,7 @@ jv.enableSearch = function() {
 /**
  * Allow to un-hide information about protected and deprecated methods.
  */
-jv.enableHiddenContent = function() {
+jvjsdoc.enableHiddenContent = function() {
     var hidden = goog.dom.getElementsByClass('hidden');
     function helper(elem, e) {
         goog.dom.classes.toggle(elem, 'hidden');
@@ -66,9 +66,9 @@ jv.enableHiddenContent = function() {
 /**
  * Initialise our javascript helpers.
  */
-jv.init = function() {
-    jv.enableSearch();
-    jv.enableHiddenContent();
+jvjsdoc.init = function() {
+    jvjsdoc.enableSearch();
+    jvjsdoc.enableHiddenContent();
 };
 
-goog.exportSymbol('init', jv.init);
+goog.exportSymbol('init', jvjsdoc.init);

@@ -1,0 +1,3 @@
+- uses python3
+- if python 3 is not your default python, call configure like this:
+  ./configure PYTHON=python3

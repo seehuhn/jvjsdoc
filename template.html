@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{title}</title>
+<link rel="stylesheet" href="@<jsdoc.css>" type="text/css">
+<script type="text/javascript">
+var jvBaseDir = '@<.>';
+</script>
+<script type="text/javascript" src="@<index.js>"></script>
+<script type="text/javascript" src="@<jsdoc.js>"></script>
+</head>
+<body onload="init()">
+<ul class="nav">
+<li><a href="@<index.html>">index</a>
+{breadcrumbs}
+<li class="off">search: <input id="search"></input><button id="go">Go</button>
+</ul>
+<h1>{HTMLtitle}</h1>
+{body}
+<p class="footer">Documentation generated using
+<a href="http://www.seehuhn.de/pages/jvjsdoc">JvJsDoc</a>, version {version}
+on {date}.
+</body>
+</html>
