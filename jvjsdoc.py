@@ -817,7 +817,9 @@ parser.add_argument(
     nargs='+',
     action='store',
     help="directories containing JavaScript source files")
-args = parser.parse_args()
+class args:
+    closure = False
+parser.parse_args(namespace=args)
 
 if args.closure:
     args.source_dirs = [ CLOSURE_BASE ] + args.source_dirs
