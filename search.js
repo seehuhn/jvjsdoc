@@ -27,9 +27,11 @@ jvjsdoc.enableSearch = function() {
                        function(e) { go.click(); });
     goog.events.listen(search, goog.events.EventType.KEYDOWN,
                        function(e) {
-                           setTimeout(function() {
-                               if (e.keyCode == 13) go.click();
-                           }, 1);
+                           if (e.keyCode == 13) {
+                               setTimeout(function() {
+                                   go.click();
+                               }, 1);
+                           }
                        });
 
     goog.events.listen(go, goog.events.EventType.CLICK,
@@ -42,6 +44,16 @@ jvjsdoc.enableSearch = function() {
                                alert('unknown symbol ' + key);
                            }
                            return true;
+                       });
+
+    goog.events.listen(document.body, goog.events.EventType.KEYPRESS,
+                       function(e) {
+                           if (e.target != search &&
+                               e.keyCode == goog.events.KeyCodes.F + 32) {
+                               search.focus();
+                               search.select();
+                               e.preventDefault();
+                           }
                        });
 
     goog.dom.classes.remove(search.parentElement, 'off');

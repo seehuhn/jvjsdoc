@@ -3,3 +3,5 @@
 - restrict inline HTML to a safe subset (no <button>)
 - explore where the stray index entries come from
 - work around MacOSX's case-insensitive file names
+- documentation of several functions is missing brackets
+  (e.g. goog.array.indexOf)
