@@ -1,3 +1,4 @@
+- what to do about the absolute paths in deps.js?
 - clean up the code so that otheres can more easily read/modify it
 - handle inline JsDoc tags
 - restrict inline HTML to a safe subset (no <button>)
