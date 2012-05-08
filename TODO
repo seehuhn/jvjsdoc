@@ -1,6 +1,7 @@
+- escape "<" and ">" in js type names
 - pressing "f" to focus the search box does not work in firefox
 - what to do about the absolute paths in deps.js?
-- clean up the code so that otheres can more easily read/modify it
+- clean up the code so that others can more easily read/modify it
 - handle inline JsDoc tags
 - restrict inline HTML to a safe subset (no <button>)
 - explore where the stray index entries come from
