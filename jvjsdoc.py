@@ -60,7 +60,7 @@ block_tag_regex = re.compile(
 comment_cont_regex = re.compile(r'^\s*\*')
 comment_end_regex = re.compile(r'\*/')
 comment_start_regex = re.compile(r'/\*\*')
-extends_regex = re.compile(r'@extends\s*\{\s*(' + js_name + r')\s*\}')
+extends_regex = re.compile(r'@extends\s*(\{\s*)?(?P<super>' + js_name + r')(?(1)\s*\})')
 function_regex = re.compile(r'function\s*(' + js_name_part + r')\s*\(')
 leading_stars_regex = re.compile(r'^\s*\*+')
 prov_regex = re.compile(r'goog\.provide\s*\(\s*[\'\"]([^\)]+)[\'\"]\s*\)')
@@ -697,7 +697,7 @@ class JsFile(object):
                 data['type'] = 'enum'
             m = extends_regex.search(comment)
             if m:
-                data['super'] = m.group(1)
+                data['super'] = m.group('super')
 
             # evil hack for inline declarations, not yet sure
             # whether this is a good idea ...
