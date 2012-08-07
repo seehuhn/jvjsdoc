@@ -183,13 +183,17 @@ class HtmlFile(BasicHtmlFile):
         self.symbols.append(name)
 
     def format_type_info(self, typestr):
-        def repl_fn(m):
-            name = m.group(1)
-            sym = Symbol.get(name, True)
-            url = sym.url() if sym else None
-            return href(url, code(name), self.basedir)
-        typestr = re.sub('(' + js_name + ')', repl_fn, typestr)
-        return span('{' + typestr + '}', 'type')
+        res = []
+        bits = re.split('(' + js_name + ')', typestr.strip())
+        for k, bit in enumerate(bits):
+            if k % 2:
+                sym = Symbol.get(bit, True)
+                url = sym.url() if sym else None
+                bit = href(url, code(bit), self.basedir)
+            else:
+                bit = escape(bit)
+            res.append(bit)
+        return span('{' + ''.join(res) + '}', 'type')
 
     def generate(self):
         body = []
