@@ -46,7 +46,7 @@ jsdoc.js: $(ALL) deps.js
 	    echo "       configure with --with-closure-compiler to rebuild" 1>&2; \
 	    exit 1; \
 	fi
-	$(CLOSURE_BUILDER) \
+	python2.7 $(CLOSURE_BUILDER) \
 	    --root=$(CLOSURE_LIBRARY) \
 	    --root=. \
 	    --output_mode=compiled \

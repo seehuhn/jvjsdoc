@@ -1,4 +1,4 @@
-#! /usr/bin/env python3.2
+#! /usr/bin/env python3
 # jvjsdoc - a JsDoc documentation generator for use with the closure library
 # Copyright (C) 2011  Jochen Voss <voss@seehuhn.de>
 #
