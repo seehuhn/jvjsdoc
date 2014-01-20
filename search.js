@@ -52,7 +52,10 @@ jvjsdoc.enableSearch = function() {
   goog.events.listen(allKeys, 'key',
                      function(e) {
                        if (e.target != search &&
-                           e.keyCode === goog.events.KeyCodes.F) {
+                           e.charCode === "f".charCodeAt(0) &&
+                           !e.altKey &&
+                           !e.ctrlKey &&
+                           !e.metaKey) {
                          search.focus();
                          search.select();
                          e.preventDefault();
